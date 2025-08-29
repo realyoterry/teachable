@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Teachable Machine Model Demo</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.16.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.4/dist/teachablemachine-image.min.js"></script>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      background: #222;
+    }
+    #webcam-container {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #222;
+    }
+    video {
+      width: 100vw;
+      height: 100vh;
+      object-fit: cover;
+    }
+    #controls {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    #result {
+      color: #fff;
+      font-size: 2em;
+      margin-top: 10px;
+      text-shadow: 0 0 10px #000;
+    }
+    button {
+      font-size: 1.2em;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      background: #0078d7;
+      color: #fff;
+      cursor: pointer;
+      box-shadow: 0 2px 8px #0004;
+    }
+    button:hover {
+      background: #005fa3;
+    }
+  </style>
+</head>
+<body>
+  <div id="webcam-container">
+    <video id="webcam" autoplay playsinline></video>
+  </div>
+  <div id="controls">
+    <button id="predict-btn">Predict Category</button>
+    <div id="result"></div>
+  </div>
+  <script>
+    let model, webcam, maxPredictions;
+
+    const categories = {
+      paper: 'Recycling',
+      plastic: 'Recycling',
+    }
+
+    async function init() {
+      const tmModelURL = "model/model.json";
+      const tmMetadataURL = "model/metadata.json";
+      model = await tmImage.load(tmModelURL, tmMetadataURL);
+      maxPredictions = model.getTotalClasses();
+
+      const video = document.getElementById("webcam");
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user" },
+          audio: false
+        });
+        video.srcObject = stream;
+        await new Promise(resolve => video.onloadedmetadata = resolve);
+      } else {
+        alert("Webcam not supported");
+      }
+    }
+
+    async function predict() {
+      const video = document.getElementById("webcam");
+      const prediction = await model.predict(video);
+      let bestIdx = 0;
+      for (let i = 1; i < prediction.length; i++) {
+        if (prediction[i].probability > prediction[bestIdx].probability) {
+          bestIdx = i;
+        }
+      }
+      const resultText = `This is ${prediction[bestIdx].className}, put in ${categories[prediction[bestIdx].className]} bin.`;
+      document.getElementById("result").textContent = resultText + ` (${(prediction[bestIdx].probability * 100).toFixed(2)}%)`;
+      if ('speechSynthesis' in window) {
+        const utter = new SpeechSynthesisUtterance(resultText);
+        window.speechSynthesis.speak(utter);
+      }
+    }
+
+    document.getElementById("predict-btn").onclick = predict;
+    window.onload = init;
+  </script>
+</body>
+</html>
